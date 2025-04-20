@@ -141,6 +141,7 @@ if (MODE === "dev") {
 authRoute.post(
 	"/register",
 	(req, _, next) => {
+		console.log(req.body);
 		const { username, password, confirmPassword } = req.body || {};
 		if (!username) {
 			next(missingUsernameError);
@@ -224,6 +225,13 @@ authRoute.post(
 	},
 );
 
+authRoute.post("/logout", (_, res) => {
+	res.clearCookie("accessToken", { httpOnly: true })
+		.clearCookie("refreshToken", { httpOnly: true })
+		.status(200)
+		.end();
+});
+
 gameRoute.use(handleTokensContext, handleDecodeToken, handleSigningToken);
 gameRoute.get("/all", handleGetAllGames);
 gameRoute.post("/new", handleInsertGame);
@@ -234,7 +242,7 @@ app.use((req, _, next) => {
 	console.log(req.method, req.path);
 	next();
 });
-app.use(cors({ origin: ALLOWED_ORIGINS }));
+app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 app.use(express.static(path.join(__dirname, "..", "public")));
 app.use(express.json());
 app.use(express.urlencoded());
@@ -261,6 +269,11 @@ app.use((err, _, res, __) => {
 		res.status(400).json({ message: err.message });
 		return;
 	}
+	if (err === unauthorizedError) {
+		console.log(err, "this is a user error");
+		res.status(401).json({ message: err.message });
+		return;
+	}
 	console.error(err, "this is a system error");
 	res.status(500).json({ message: "something went wrong with the server" });
 });
@@ -283,7 +296,7 @@ mongoClient
 		process.exit(1);
 	});
 
-async function handleGetAllGames(_, res) {
+async function handleGetAllGames(_, res, next) {
 	try {
 		const games = await mongoClient
 			.db(MONGODB_DATABASE)
@@ -457,6 +470,7 @@ async function handleAuthorizeUser(req, _, next) {
 			id: user.id,
 			username: user.username,
 		};
+		req.issueNew = true;
 
 		next();
 	} catch (err) {
@@ -467,6 +481,7 @@ async function handleAuthorizeUser(req, _, next) {
 function handleSigningToken(req, _, next) {
 	if (!req.issueNew) {
 		next();
+		return;
 	}
 
 	try {
