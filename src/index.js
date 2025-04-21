@@ -424,16 +424,16 @@ async function handleUpdateGame(req, res, next) {
 	}
 	if (releaseDate !== undefined) {
 		const _releaseDate = new Date(releaseDate);
-		if (_releaseDate.getTime()) {
+		if (!_releaseDate.getTime()) {
 			next(missingReleaseDateError);
 			return;
 		}
 		newGame.releaseDate = _releaseDate;
 	}
-	if (description) {
+	if (description !== undefined) {
 		newGame.description = description;
 	}
-	if (price) {
+	if (price !== undefined) {
 		newGame.price = parseInt(price) || 0;
 	}
 	try {
