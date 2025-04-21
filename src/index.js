@@ -13,6 +13,9 @@ const SIGNING_KEY = process.env.SIGNING_KEY;
 const ACCESS_TOKEN_DURATION_IN_HOUR = process.env.ACCESS_TOKEN_DURATION_IN_HOUR;
 const REFRESH_TOKEN_DURATION_IN_HOUR =
 	process.env.REFRESH_TOKEN_DURATION_IN_HOUR;
+const CATEGORIES_PAIR = process.env.CATEGORIES_PAIR?.split(",")?.map((pair) =>
+	pair.split(":"),
+);
 const WORK_FACTOR = process.env.WORK_FACTOR;
 const MONGODB_URI = process.env.MONGODB_URI;
 const MONGODB_APPNAME = process.env.MONGODB_APPNAME;
@@ -22,11 +25,7 @@ const MONGODB_DATABASE = process.env.MONGODB_DATABASE;
 const MONGODB_GAMES_COLLECTION = process.env.MONGODB_GAMES_COLLECTION;
 const MONGODB_USERS_COLLECTION = process.env.MONGODB_USERS_COLLECTION;
 
-const categories = new Map([
-	["roleplay", "RP"],
-	["moba", "MB"],
-	["sandbox", "SB"],
-]);
+const categories = new Map(CATEGORIES_PAIR);
 
 const missingNameError = new Error("the field name is require but get nothing");
 const missingAuthorError = new Error(
@@ -263,7 +262,8 @@ app.use((err, _, res, __) => {
 		err === missingUsernameError ||
 		err === missingPasswordError ||
 		err === mismatchedPasswordError ||
-		err === usernameAlreadyUsedError
+		err === usernameAlreadyUsedError ||
+		err === authenticationError
 	) {
 		console.log(err, "this is a user error");
 		res.status(400).json({ message: err.message });
@@ -296,6 +296,11 @@ mongoClient
 		process.exit(1);
 	});
 
+/**
+ * @param {express.Request} req
+ * @param {express.Response} res
+ * @param {express.NextFunction} next
+ */
 async function handleGetAllGames(_, res, next) {
 	try {
 		const games = await mongoClient
@@ -310,6 +315,11 @@ async function handleGetAllGames(_, res, next) {
 	}
 }
 
+/**
+ * @param {express.Request} req
+ * @param {express.Response} res
+ * @param {express.NextFunction} next
+ */
 async function handleInsertGame(req, res, next) {
 	const { name, releaseDate, description, price, author, category } =
 		req.body || {};
@@ -365,6 +375,11 @@ async function handleInsertGame(req, res, next) {
 	}
 }
 
+/**
+ * @param {express.Request} req
+ * @param {express.Response} res
+ * @param {express.NextFunction} next
+ */
 async function handleDeleteGame(req, res, next) {
 	const id = req.params.id;
 	try {
@@ -384,6 +399,11 @@ async function handleDeleteGame(req, res, next) {
 	}
 }
 
+/**
+ * @param {express.Request} req
+ * @param {express.Response} res
+ * @param {express.NextFunction} next
+ */
 async function handleUpdateGame(req, res, next) {
 	const id = req.params.id;
 	const { name, releaseDate, description, price, author } = req.body || {};
@@ -436,6 +456,11 @@ async function handleUpdateGame(req, res, next) {
 	}
 }
 
+/**
+ * @param {express.Request} req
+ * @param {express.Response} res
+ * @param {express.NextFunction} next
+ */
 async function handleHashPassword(req, _, next) {
 	const { password } = req.body || {};
 	try {
@@ -446,8 +471,13 @@ async function handleHashPassword(req, _, next) {
 	}
 }
 
+/**
+ * @param {express.Request} req
+ * @param {express.Response} res
+ * @param {express.NextFunction} next
+ */
 async function handleAuthorizeUser(req, _, next) {
-	const { username, password } = req.body;
+	const { username, password } = req.body || {};
 
 	try {
 		const user = await mongoClient
@@ -478,6 +508,11 @@ async function handleAuthorizeUser(req, _, next) {
 	}
 }
 
+/**
+ * @param {express.Request} req
+ * @param {express.Response} res
+ * @param {express.NextFunction} next
+ */
 function handleSigningToken(req, _, next) {
 	if (!req.issueNew) {
 		next();
@@ -497,6 +532,11 @@ function handleSigningToken(req, _, next) {
 	}
 }
 
+/**
+ * @param {express.Request} req
+ * @param {express.Response} res
+ * @param {express.NextFunction} next
+ */
 function handleTokensContext(req, _, next) {
 	const { accessToken, refreshToken } = req.cookies || {};
 	if (!accessToken && !refreshToken) {
@@ -510,6 +550,11 @@ function handleTokensContext(req, _, next) {
 	next();
 }
 
+/**
+ * @param {express.Request} req
+ * @param {express.Response} res
+ * @param {express.NextFunction} next
+ */
 function handleDecodeToken(req, _, next) {
 	const accessTokenPayload = jwt.decode(req.tokens.accessToken);
 	const refreshTokenPayload = jwt.decode(req.tokens.refreshToken);
