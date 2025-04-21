@@ -178,7 +178,7 @@ authRoute.post(
 					{ projection: { _id: false, id: true }, sort: { _id: -1 } },
 				);
 
-			if (lastUser === null) {
+			if (!lastUser) {
 				user.id = newUserId(0);
 			} else {
 				user.id = newUserId(parseInt(lastUser.id.slice(-4)));
