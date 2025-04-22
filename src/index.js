@@ -1,4 +1,5 @@
 const express = require("express");
+const expressFileupload = require("express-fileupload");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const path = require("path");
@@ -140,7 +141,6 @@ if (MODE === "dev") {
 authRoute.post(
 	"/register",
 	(req, _, next) => {
-		console.log(req.body);
 		const { username, password, confirmPassword } = req.body || {};
 		if (!username) {
 			next(missingUsernameError);
@@ -233,24 +233,25 @@ authRoute.post("/logout", (_, res) => {
 
 gameRoute.use(handleTokensContext, handleDecodeToken, handleSigningToken);
 gameRoute.get("/all", handleGetAllGames);
-gameRoute.post("/new", handleInsertGame);
+gameRoute.post("/new", handleUploadImage, handleInsertGame);
 gameRoute.delete("/delete/:id", handleDeleteGame);
-gameRoute.patch("/update/:id", handleUpdateGame);
+gameRoute.patch("/update/:id", handleUploadImage, handleUpdateGame);
 
 app.use((req, _, next) => {
 	console.log(req.method, req.path);
 	next();
 });
 app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
-app.use(express.static(path.join(__dirname, "..", "public")));
+app.use("/public", express.static(path.join(__dirname, "..", "public")));
 app.use(express.json());
 app.use(express.urlencoded());
+app.use(expressFileupload({ createParentPath: true }));
 app.use(cookieParser());
 app.use("/game", gameRoute);
 app.use("/auth", authRoute);
 app.use((err, _, res, __) => {
 	if (err === gameNotFoundError) {
-		console.log(err, "this is a user error");
+		console.warn(err, "this is a user error");
 		res.status(404).json({ message: err.message });
 		return;
 	}
@@ -265,12 +266,12 @@ app.use((err, _, res, __) => {
 		err === usernameAlreadyUsedError ||
 		err === authenticationError
 	) {
-		console.log(err, "this is a user error");
+		console.warn(err, "this is a user error");
 		res.status(400).json({ message: err.message });
 		return;
 	}
 	if (err === unauthorizedError) {
-		console.log(err, "this is a user error");
+		console.warn(err, "this is a user error");
 		res.status(401).json({ message: err.message });
 		return;
 	}
@@ -315,6 +316,26 @@ async function handleGetAllGames(_, res, next) {
 	}
 }
 
+async function handleUploadImage(req, _, next) {
+	const files = req.files;
+	if (!files || Object.keys(files).length === 0 || !files.image) {
+		next();
+		return;
+	}
+	const image = files.image;
+	const filename = Date.now() + path.extname(image.name);
+	const imagePath = path.join("public", "images", filename);
+	const uploadPath = path.join(__dirname, "..", imagePath);
+	try {
+		await image.mv(uploadPath);
+		req.image = imagePath;
+	} catch (err) {
+		console.warn(err, "something went wrong when uploading image");
+	} finally {
+		next();
+	}
+}
+
 /**
  * @param {express.Request} req
  * @param {express.Response} res
@@ -345,6 +366,9 @@ async function handleInsertGame(req, res, next) {
 	}
 	if (price) {
 		newGame.price = parseInt(price) || 0;
+	}
+	if (req.image) {
+		newGame.image = req.image;
 	}
 
 	try {
@@ -435,6 +459,9 @@ async function handleUpdateGame(req, res, next) {
 	}
 	if (price !== undefined) {
 		newGame.price = parseInt(price) || 0;
+	}
+	if (req.image) {
+		newGame.image = req.image;
 	}
 	try {
 		const result = await mongoClient
