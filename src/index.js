@@ -44,8 +44,14 @@ const gameNotFoundError = new Error("no game match the query");
 const missingUsernameError = new Error(
 	"the field username is require but get nothing",
 );
+const usernameContainSpaceError = new Error(
+	"username does not allowed to have space",
+);
 const missingPasswordError = new Error(
 	"the field password is require but get nothing",
+);
+const passwordContainSpaceError = new Error(
+	"password does not allowed to have space",
 );
 const mismatchedPasswordError = new Error(
 	"confirmPassword does not match password",
@@ -146,8 +152,16 @@ authRoute.post(
 			next(missingUsernameError);
 			return;
 		}
+		if (username.includes(" ")) {
+			next(usernameContainSpaceError);
+			return;
+		}
 		if (!password) {
 			next(missingPasswordError);
+			return;
+		}
+		if (password.includes(" ")) {
+			next(passwordContainSpaceError);
 			return;
 		}
 		if (password !== confirmPassword) {
@@ -251,7 +265,8 @@ app.use("/game", gameRoute);
 app.use("/auth", authRoute);
 app.use((err, _, res, __) => {
 	if (err === gameNotFoundError) {
-		console.warn(err, "this is a user error");
+		console.warn(err);
+		console.log("this is a user error");
 		res.status(404).json({ message: err.message });
 		return;
 	}
@@ -261,21 +276,26 @@ app.use((err, _, res, __) => {
 		err === missingReleaseDateError ||
 		err === invalidCategoryError ||
 		err === missingUsernameError ||
+		err === usernameContainSpaceError ||
 		err === missingPasswordError ||
+		err === passwordContainSpaceError ||
 		err === mismatchedPasswordError ||
 		err === usernameAlreadyUsedError ||
 		err === authenticationError
 	) {
-		console.warn(err, "this is a user error");
+		console.warn(err);
+		console.log("this is a user error");
 		res.status(400).json({ message: err.message });
 		return;
 	}
 	if (err === unauthorizedError) {
-		console.warn(err, "this is a user error");
+		console.warn(err);
+		console.log("this is a user error");
 		res.status(401).json({ message: err.message });
 		return;
 	}
-	console.error(err, "this is a system error");
+	console.error(err);
+	console.log("this is a system error");
 	res.status(500).json({ message: "something went wrong with the server" });
 });
 
@@ -285,7 +305,8 @@ mongoClient
 		console.log("successfully connected to the database");
 		app.listen(PORT, (err) => {
 			if (err !== undefined) {
-				console.error(err, "failed to start the server");
+				console.error(err);
+				console.log("failed to start the server");
 				process.exit(1);
 			} else {
 				console.log(`listening at http://127.0.0.1:${PORT}`);
@@ -293,7 +314,8 @@ mongoClient
 		});
 	})
 	.catch((err) => {
-		console.error(err, "failed to connect to the database");
+		console.error(err);
+		console.log("failed to connect to the database");
 		process.exit(1);
 	});
 
