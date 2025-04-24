@@ -324,12 +324,20 @@ mongoClient
  * @param {express.Response} res
  * @param {express.NextFunction} next
  */
-async function handleGetAllGames(_, res, next) {
+async function handleGetAllGames(req, res, next) {
+	const { limit, skip } = req.query;
+	const queryOption = {};
+	if (limit) {
+		queryOption.limit = parseInt(limit);
+	}
+	if (skip) {
+		queryOption.skip = parseInt(skip);
+	}
 	try {
 		const games = await mongoClient
 			.db(MONGODB_DATABASE)
 			.collection(MONGODB_GAMES_COLLECTION)
-			.find({}, { projection: { _id: false } })
+			.find({}, { projection: { _id: false }, ...queryOption })
 			.toArray();
 
 		res.json(games);
