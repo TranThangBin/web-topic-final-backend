@@ -248,6 +248,34 @@ authRoute.post("/logout", (_, res) => {
 gameRoute.use(handleTokensContext, handleDecodeToken, handleSigningToken);
 gameRoute.get("/all", handleGetAllGames);
 gameRoute.post("/new", handleUploadImage, handleInsertGame);
+gameRoute.get("/newId", async (req, res, next) => {
+	const { category } = req.query;
+
+	if (!category) {
+		next(invalidCategoryError);
+		return;
+	}
+
+	try {
+		const lastGame = await mongoClient
+			.db(MONGODB_DATABASE)
+			.collection(MONGODB_GAMES_COLLECTION)
+			.findOne(
+				{},
+				{ projection: { _id: false, id: true }, sort: { _id: -1 } },
+			);
+
+		if (lastGame === null) {
+			res.json({ id: newGameId(0, category) });
+		} else {
+			res.json({
+				id: newGameId(parseInt(lastGame.id.slice(-4)), category),
+			});
+		}
+	} catch (err) {
+		next(err);
+	}
+});
 gameRoute.delete("/delete/:id", handleDeleteGame);
 gameRoute.patch("/update/:id", handleUploadImage, handleUpdateGame);
 
